@@ -4,6 +4,65 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
+  // Function to unregister a participant
+  function unregisterParticipant(activityName, email) {
+      fetch(`/activities/${activityName}/unregister`, {
+          method: 'DELETE',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email })
+      })
+      .then(response => response.json())
+      .then(data => {
+          if (data.message) {
+              loadActivities(); // Reload activities after unregistering
+          }
+      })
+      .catch(error => console.error('Error:', error));
+  }
+
+  // Function to load activities
+  function loadActivities() {
+      fetch('/activities')
+          .then(response => response.json())
+          .then(activities => {
+              activitiesList.innerHTML = '';
+              for (const [activityName, activity] of Object.entries(activities)) {
+                  const activityDiv = document.createElement('div');
+                  activityDiv.innerHTML = `<h4>${escapeHtml(activityName)}</h4><p>${escapeHtml(activity.description)}</p><p>Participants:</p><ul style='list-style-type: none;'>`;
+                  activity.participants.forEach(participant => {
+                      activityDiv.innerHTML += `<li>${escapeHtml(participant)} <button onclick="unregisterParticipant('${activityName}', '${escapeHtml(participant)}')">🗑️</button></li>`;
+                  });
+                  activityDiv.innerHTML += '</ul>';
+                  activitiesList.appendChild(activityDiv);
+              }
+          })
+          .catch(error => console.error('Error:', error));
+  }
+
+  loadActivities();
+
+  // Helper: escape minimal HTML to avoid inyección accidental
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // Helper: obtener iniciales para el avatar
+  function getInitials(name) {
+    if (!name) return "";
+    const parts = name.trim().split(/\s+/);
+    const initials = parts.length === 1
+      ? parts[0].slice(0, 2)
+      : (parts[0][0] + parts[parts.length - 1][0]);
+    return initials.toUpperCase();
+  }
+
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
@@ -20,11 +79,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Construir HTML de participantes
+        const participantsHtml = Array.isArray(details.participants) && details.participants.length > 0
+          ? `<ul>${details.participants.map(p => `<li><span class="avatar">${escapeHtml(getInitials(p))}</span><span class="name">${escapeHtml(p)}</span></li>`).join("")}</ul>`
+          : `<div class="empty">Aún no hay participantes</div>`;
+
         activityCard.innerHTML = `
-          <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
+          <h4>${escapeHtml(name)}</h4>
+          <p>${escapeHtml(details.description)}</p>
+          <p><strong>Schedule:</strong> ${escapeHtml(details.schedule)}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants">
+            <h5>Participantes</h5>
+            ${participantsHtml}
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -68,6 +136,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       messageDiv.classList.remove("hidden");
+
+      // Refresh activities to show the new participant
+      await fetchActivities();
 
       // Hide message after 5 seconds
       setTimeout(() => {
