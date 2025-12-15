@@ -4,6 +4,45 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
+  // Function to unregister a participant
+  function unregisterParticipant(activityName, email) {
+      fetch(`/activities/${activityName}/unregister`, {
+          method: 'DELETE',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email })
+      })
+      .then(response => response.json())
+      .then(data => {
+          if (data.message) {
+              loadActivities(); // Reload activities after unregistering
+          }
+      })
+      .catch(error => console.error('Error:', error));
+  }
+
+  // Function to load activities
+  function loadActivities() {
+      fetch('/activities')
+          .then(response => response.json())
+          .then(activities => {
+              activitiesList.innerHTML = '';
+              for (const [activityName, activity] of Object.entries(activities)) {
+                  const activityDiv = document.createElement('div');
+                  activityDiv.innerHTML = `<h4>${escapeHtml(activityName)}</h4><p>${escapeHtml(activity.description)}</p><p>Participants:</p><ul style='list-style-type: none;'>`;
+                  activity.participants.forEach(participant => {
+                      activityDiv.innerHTML += `<li>${escapeHtml(participant)} <button onclick="unregisterParticipant('${activityName}', '${escapeHtml(participant)}')">🗑️</button></li>`;
+                  });
+                  activityDiv.innerHTML += '</ul>';
+                  activitiesList.appendChild(activityDiv);
+              }
+          })
+          .catch(error => console.error('Error:', error));
+  }
+
+  loadActivities();
+
   // Helper: escape minimal HTML to avoid inyección accidental
   function escapeHtml(str) {
     return String(str)
@@ -97,6 +136,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       messageDiv.classList.remove("hidden");
+
+      // Refresh activities to show the new participant
+      await fetchActivities();
 
       // Hide message after 5 seconds
       setTimeout(() => {
