@@ -4,6 +4,26 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
+  // Helper: escape minimal HTML to avoid inyección accidental
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // Helper: obtener iniciales para el avatar
+  function getInitials(name) {
+    if (!name) return "";
+    const parts = name.trim().split(/\s+/);
+    const initials = parts.length === 1
+      ? parts[0].slice(0, 2)
+      : (parts[0][0] + parts[parts.length - 1][0]);
+    return initials.toUpperCase();
+  }
+
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
@@ -20,11 +40,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Construir HTML de participantes
+        const participantsHtml = Array.isArray(details.participants) && details.participants.length > 0
+          ? `<ul>${details.participants.map(p => `<li><span class="avatar">${escapeHtml(getInitials(p))}</span><span class="name">${escapeHtml(p)}</span></li>`).join("")}</ul>`
+          : `<div class="empty">Aún no hay participantes</div>`;
+
         activityCard.innerHTML = `
-          <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
+          <h4>${escapeHtml(name)}</h4>
+          <p>${escapeHtml(details.description)}</p>
+          <p><strong>Schedule:</strong> ${escapeHtml(details.schedule)}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants">
+            <h5>Participantes</h5>
+            ${participantsHtml}
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
